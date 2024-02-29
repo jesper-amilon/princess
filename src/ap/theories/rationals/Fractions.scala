@@ -7,18 +7,18 @@
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice, this
  *   list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of the authors nor the names of their
  *   contributors may be used to endorse or promote products derived from
  *   this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -76,11 +76,9 @@ class Fractions(name : String,
    */
   protected def individualsStream : Option[Stream[ITerm]] = None
 
-  object FractionSort extends ProxySort (RingSort) with Theory.TheorySort {
+  object FractionSort extends ProxySort (RingSort) {
 
     override val name = Fractions.this.name
-
-    val theory = Fractions.this
 
     override lazy val individuals : Stream[ITerm] =
       individualsStream match {
@@ -130,6 +128,7 @@ class Fractions(name : String,
     MonoSortedIFunction(name + "_int", List(Sort.Integer), dom,
                         true, true)
 
+
   /**
    * Function to represent fractions, where numerator and denominator
    * are expressions from the underlying ring
@@ -137,6 +136,11 @@ class Fractions(name : String,
   val frac : IFunction =
     MonoSortedIFunction(name + "_frac", List(RingSort, RingSort), dom,
                         true, true)
+  /**
+  * Logical plus
+  */
+  val fracPlus : IFunction = MonoSortedIFunction(name + "fracPlus",
+    List(dom, dom), dom, true, false)
 
   /**
    * Extractor for fractions, where numerator and denominator
@@ -191,16 +195,20 @@ class Fractions(name : String,
   val zero: ITerm = int2ring(0)   // frac(ringZero, ringOne)
   val one : ITerm = int2ring(1)   // frac(ringOne, ringOne)
 
-  def plus(s: ITerm, t: ITerm): ITerm = (s, t) match {
-    case (IFunApp(`int`, Seq(num1)),
-          IFunApp(`int`, Seq(num2))) =>
-      int(num1 +++ num2)
-    case (IFunApp(`frac`, Seq(num1, denom1)),
-          IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
-      frac(ringPlus(num1, num2), denom1)
-    case _ =>
-      ringPlus(s, t)
-  }
+  /*
+  // def plus(s: ITerm, t: ITerm): ITerm = (s, t) match {
+  //   case (IFunApp(`int`, Seq(num1)),
+  //         IFunApp(`int`, Seq(num2))) =>
+  //     int(num1 +++ num2)
+  //   case (IFunApp(`frac`, Seq(num1, denom1)),
+  //         IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
+  //     frac(ringPlus(num1, num2), denom1)
+  //   case _ =>
+  //     ringPlus(s, t)
+  // }
+   */
+
+  def plus(s: ITerm, t: ITerm): ITerm = fracPlus(s,t)
 
   override def times(num : IdealInt, s : ITerm) : ITerm = s match {
     case IFunApp(`int`, Seq(n)) =>
@@ -261,6 +269,11 @@ class Fractions(name : String,
       underlyingRing.minus(s)
   }
 
+  override def iPostprocess(f: IFormula, signature: Signature): IFormula = {
+    println(f)
+    f
+  }
+
   override def iPreprocess(f : IFormula, signature : Signature)
                         : (IFormula, Signature) = {
     val visitor =
@@ -303,6 +316,20 @@ class Fractions(name : String,
       case IFunApp(`denom`, _) => {
         usedDenom = true
         t
+      }
+      case IFunApp(`fracPlus`, _) => {
+        subres match {
+          case Seq(s:ITerm, t:ITerm) =>
+            (s,t) match {
+              case (IFunApp(`int`, Seq(num1)),
+              IFunApp(`int`, Seq(num2))) =>
+                int(num1 +++ num2)
+              case (IFunApp(`frac`, Seq(num1, denom1)),
+              IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
+                frac(ringPlus(num1, num2), denom1)
+              case _ =>  ringPlus(s, t)
+            }
+        }
       }
       case _ =>
         (t update subres) match {
