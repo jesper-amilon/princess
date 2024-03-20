@@ -163,7 +163,7 @@ class Fractions(name : String,
     MonoSortedIFunction(name + "_denom", List(), RingSort,
                         true, false)
 
-  val functions = List(frac, denom, int)
+  val functions = List(frac, fracPlus, denom, int)
 
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions)
